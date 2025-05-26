@@ -1,0 +1,4 @@
+*.o
+*.obj
+c_posix_runtime_bench
+
