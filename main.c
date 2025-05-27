@@ -11,7 +11,7 @@
 #define DEFAULT_TASKS 1048576  // 2^20
 #define DEFAULT_FIB_NUMBER 30
 
-// Print usage information
+
 void print_usage(const char *program_name) {
     printf("Usage: %s -b <benchmark> -t <threads> [-n <tasks>] [-f <fib_num>] [--pin] [-h]\n", program_name);
     printf("Options:\n");
@@ -27,7 +27,7 @@ void print_usage(const char *program_name) {
     printf("  %s -b fib -t 4 -f 35\n", program_name);
 }
 
-// Parse benchmark type from string
+
 benchmark_type_t parse_benchmark_type(const char *type_str) {
     if (strcmp(type_str, "serial") == 0) {
         return BENCHMARK_SERIAL;
@@ -40,7 +40,7 @@ benchmark_type_t parse_benchmark_type(const char *type_str) {
     }
 }
 
-// Get benchmark name string
+
 const char* get_benchmark_name(benchmark_type_t type, int fib_number) {
     static char fib_name[32];
     switch (type) {
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
         .pin_threads = false
     };
     
-    // Parse command line arguments
+
     static struct option long_options[] = {
         {"benchmark", required_argument, 0, 'b'},
         {"threads", required_argument, 0, 't'},
@@ -119,14 +119,14 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    // Validate required arguments
+
     if (config.type == -1) {
         fprintf(stderr, "Error: Benchmark type is required\n");
         print_usage(argv[0]);
         return 1;
     }
     
-    // Check if number of threads is reasonable
+
     int max_cores = sysconf(_SC_NPROCESSORS_ONLN);
     if (config.num_threads > max_cores * 2) {
         printf("Warning: Requested %d threads, but system has only %d cores\n", 
@@ -145,14 +145,13 @@ int main(int argc, char *argv[]) {
     printf("Thread pinning: %s\n", config.pin_threads ? "enabled" : "disabled");
     printf("==========================================\n\n");
     
-    // Create thread pool
     threadpool_t *pool = threadpool_create(config.num_threads);
     if (!pool) {
         fprintf(stderr, "Error: Failed to create thread pool\n");
         return 1;
     }
     
-    // Set thread affinity if requested
+
     if (config.pin_threads) {
         printf("Setting thread affinity...\n");
         for (int i = 0; i < config.num_threads; i++) {
@@ -160,7 +159,6 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    // Run the benchmark
     double elapsed_time = 0.0;
     
     switch (config.type) {
@@ -181,7 +179,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     
-    // Print results
     printf("\n==========================================\n");
     printf("Benchmark completed successfully!\n");
     printf("Elapsed time: %.3f milliseconds\n", elapsed_time * 1000);
@@ -194,7 +191,6 @@ int main(int argc, char *argv[]) {
     
     printf("==========================================\n");
     
-    // Cleanup
     threadpool_destroy(pool);
     
     return 0;

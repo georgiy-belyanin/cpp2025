@@ -3,7 +3,10 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define DEFAULT_QUEUE_CAPACITY 10000
+// Add this line
+__thread bool is_worker = false;
+
+#define DEFAULT_QUEUE_CAPACITY 700000 // Increased from 10000
 
 threadpool_t *threadpool_create(int num_threads)
 {
@@ -78,6 +81,7 @@ threadpool_t *threadpool_create(int num_threads)
 void *worker_thread(void *arg)
 {
     threadpool_t *pool = (threadpool_t *)arg;
+    is_worker = true; // Set is_worker to true
 
     while (true)
     {
@@ -120,6 +124,12 @@ void *worker_thread(void *arg)
 // new task to the pool
 void threadpool_submit(threadpool_t *pool, void (*func)(void *), void *arg)
 {
+    // D-4: Inline-fallback on full queue
+    if (is_worker && pool->queue_size == pool->queue_capacity) {
+        func(arg);
+        return;
+    }
+
     atomic_fetch_add(&pool->outstanding_tasks, 1);
 
     pthread_mutex_lock(&pool->queue_mutex);

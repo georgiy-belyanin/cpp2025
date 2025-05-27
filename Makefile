@@ -1,10 +1,36 @@
 CC = gcc
 CFLAGS = -O2 -Wall -pthread -std=c11
+# Add -DSERIAL_CUTOFF to enable serial cutoff optimization for Fibonacci
+# CFLAGS += -DSERIAL_CUTOFF
 TARGET = c_posix_runtime_bench
 OBJS = main.o threadpool.o benchmarks.o
 
 # Default target
 all: $(TARGET)
+
+# Build with serial cutoff optimization for Fibonacci
+serial-cutoff: CFLAGS += -DSERIAL_CUTOFF
+serial-cutoff: clean $(TARGET)
+
+# Build and test with serial cutoff optimization
+test-serial-cutoff: serial-cutoff
+	@echo "Testing Fibonacci benchmark with serial cutoff optimization..."
+	./$(TARGET) -b fib -t 4 -f 20
+
+# Compare performance with and without serial cutoff
+compare-cutoff: $(TARGET)
+	@echo "=== Performance Comparison: Fibonacci(25) ===" 
+	@echo "Without serial cutoff:"
+	./$(TARGET) -b fib -t 4 -f 30
+	@echo ""
+	@echo "Building with serial cutoff..."
+	@$(MAKE) serial-cutoff > /dev/null 2>&1
+	@echo "With serial cutoff:"
+	./$(TARGET) -b fib -t 4 -f 30
+	@echo ""
+	@echo "Rebuilding normal version..."
+	@$(MAKE) clean > /dev/null 2>&1
+	@$(MAKE) $(TARGET) > /dev/null 2>&1
 
 # Build the main executable
 $(TARGET): $(OBJS)
@@ -97,7 +123,12 @@ help:
 	@echo ""
 	@echo "Build targets:"
 	@echo "  all            - Build the benchmark executable (default)"
+	@echo "  serial-cutoff  - Build with Fibonacci serial cutoff optimization"
 	@echo "  clean          - Remove build artifacts"
+	@echo ""
+	@echo "Serial cutoff testing:"
+	@echo "  test-serial-cutoff - Build with serial cutoff and run test"
+	@echo "  compare-cutoff - Compare performance with/without serial cutoff"
 	@echo ""
 	@echo "Test targets:"
 	@echo "  test           - Run quick tests"
@@ -127,7 +158,8 @@ help:
 	@echo ""
 	@echo "  help           - Show this help message"
 
-.PHONY: all clean deps test benchmark benchmark-pinned help \
+.PHONY: all clean test benchmark benchmark-pinned help \
+        serial-cutoff test-serial-cutoff compare-cutoff \
         serial parallel fibonacci fib \
         serial-pinned parallel-pinned fibonacci-pinned fib-pinned \
         serial-large parallel-large \

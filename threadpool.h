@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <stdatomic.h>
 
+extern __thread bool is_worker;
+
 /*
     To remove overhead of thread allocation threads are preallocated in a pool
 */

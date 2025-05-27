@@ -6,6 +6,7 @@
 #include <math.h>
 #include <sched.h>
 #include <unistd.h>
+#include <stdatomic.h>
 
 double get_time_diff(struct timespec start, struct timespec end)
 {
@@ -102,107 +103,123 @@ double run_parallel_spawn(threadpool_t *pool, int num_tasks)
     return get_time_diff(start, end);
 }
 
-void fib_task(void *arg)
-{
-    fib_task_t *fib_args = (fib_task_t *)arg;
 
-    if (fib_args->n < 2)
-    {
-        fib_args->value = fib_args->n;
-        fib_args->completed = true;
-        // signal completion
-        pthread_mutex_lock(&fib_args->mutex);
-        pthread_cond_signal(&fib_args->cond);
-        pthread_mutex_unlock(&fib_args->mutex);
+#ifdef SERIAL_CUTOFF
+static long fib_serial(int n) {
+    if (n < 2) return n;
+    long a = 0, b = 1;
+    for (int i = 2; i <= n; i++) {
+        long temp = a + b;
+        a = b;
+        b = temp;
+    }
+    return b;
+}
+#endif
+
+static inline void enqueue_or_run(threadpool_t *pool, void(*fn)(void*), void *arg)
+{
+    if (is_worker && pool->queue_size == pool->queue_capacity) {
+        fn(arg);
+    } else {
+        threadpool_submit(pool, fn, arg);
+    }
+}
+
+void fibonacci_finish_task(void *arg)
+{
+    fib_ctx *ctx = (fib_ctx *)arg;
+
+    if (ctx->parent) {
+        ctx->parent->res += ctx->res;
+        if (atomic_fetch_sub(&ctx->parent->pending, 1) == 1) {
+            threadpool_submit(ctx->pool, fibonacci_finish_task, ctx->parent);
+        }
+        free(ctx);
+    }
+    //root context cleanup is handled by run_fibonacci
+}
+
+void fibonacci_task(void *arg)
+{
+    fib_ctx *ctx = (fib_ctx *)arg;
+
+    if (ctx->n < 2) {
+        ctx->res = ctx->n;
+        threadpool_submit(ctx->pool, fibonacci_finish_task, ctx);
         return;
     }
 
- 
-    fib_task_t child1 = {
-        .pool = fib_args->pool,
-        .n = fib_args->n - 1,
-        .value = 0,
-        .remaining_children = 0,
-        .completed = false
+#ifdef SERIAL_CUTOFF
+    if (ctx->n <= 10) {
+        ctx->res = fib_serial(ctx->n);
+        threadpool_submit(ctx->pool, fibonacci_finish_task, ctx);
+        return;
+    }
+#endif
+
+    fib_ctx *left = malloc(sizeof(fib_ctx));
+    fib_ctx *right = malloc(sizeof(fib_ctx));
+
+    if (!left || !right) {
+        if (left) free(left);
+        if (right) free(right);
+        ctx->res = -1;
+        threadpool_submit(ctx->pool, fibonacci_finish_task, ctx);
+        return;
+    }
+
+    *left = (fib_ctx){
+        .n = ctx->n - 1,
+        .res = 0,
+        .pending = ATOMIC_VAR_INIT(0),
+        .parent = ctx,
+        .pool = ctx->pool
     };
     
-    fib_task_t child2 = {
-        .pool = fib_args->pool,
-        .n = fib_args->n - 2,
-        .value = 0,
-        .remaining_children = 0,
-        .completed = false
+    *right = (fib_ctx){
+        .n = ctx->n - 2,
+        .res = 0,
+        .pending = ATOMIC_VAR_INIT(0),
+        .parent = ctx,
+        .pool = ctx->pool
     };
 
-    pthread_mutex_init(&child1.mutex, NULL);
-    pthread_cond_init(&child1.cond, NULL);
-    pthread_mutex_init(&child2.mutex, NULL);
-    pthread_cond_init(&child2.cond, NULL);
+    atomic_store(&ctx->pending, 2);
 
-    threadpool_submit(fib_args->pool, fib_task, &child1);
-    threadpool_submit(fib_args->pool, fib_task, &child2);
-
-    pthread_mutex_lock(&child1.mutex);
-    while (!child1.completed)
-    {
-        pthread_cond_wait(&child1.cond, &child1.mutex);
-    }
-    pthread_mutex_unlock(&child1.mutex);
-
-    pthread_mutex_lock(&child2.mutex);
-    while (!child2.completed)
-    {
-        pthread_cond_wait(&child2.cond, &child2.mutex);
-    }
-    pthread_mutex_unlock(&child2.mutex);
-
-    fib_args->value = child1.value + child2.value;
-    fib_args->completed = true;
-
-    pthread_mutex_lock(&fib_args->mutex);
-    pthread_cond_signal(&fib_args->cond);
-    pthread_mutex_unlock(&fib_args->mutex);
-
-    pthread_mutex_destroy(&child1.mutex);
-    pthread_cond_destroy(&child1.cond);
-    pthread_mutex_destroy(&child2.mutex);
-    pthread_cond_destroy(&child2.cond);
+    enqueue_or_run(ctx->pool, fibonacci_task, left);
+    fibonacci_task(right);
 }
 
 double run_fibonacci(threadpool_t *pool, int fib_number)
 {
     struct timespec start, end;
 
-    printf("Running Fibonacci(%d) with %d threads (recursive parallel)...\n", fib_number, pool->num_threads);
+    printf("Running Fibonacci(%d) with %d threads...\n", fib_number, pool->num_threads);
 
-    fib_task_t fib_args = {
-        .pool = pool,
+    fib_ctx *root = calloc(1, sizeof(fib_ctx));
+    if (!root) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return -1.0;
+    }
+
+    *root = (fib_ctx){
         .n = fib_number,
-        .value = 0,
-        .remaining_children = 0,
-        .completed = false};
-
-    pthread_mutex_init(&fib_args.mutex, NULL);
-    pthread_cond_init(&fib_args.cond, NULL);
+        .res = 0,
+        .pending = ATOMIC_VAR_INIT(0),
+        .parent = NULL,
+        .pool = pool
+    };
 
     clock_gettime(CLOCK_MONOTONIC, &start);
 
-    threadpool_submit(pool, fib_task, &fib_args);
-
-    // Wait for the top-level task to complete
-    pthread_mutex_lock(&fib_args.mutex);
-    while (!fib_args.completed)
-    {
-        pthread_cond_wait(&fib_args.cond, &fib_args.mutex);
-    }
-    pthread_mutex_unlock(&fib_args.mutex);
+    threadpool_submit(pool, fibonacci_task, root);
+    threadpool_wait_all(pool);
 
     clock_gettime(CLOCK_MONOTONIC, &end);
 
-    printf("Fibonacci(%d) = %ld\n", fib_number, fib_args.value);
-
-    pthread_mutex_destroy(&fib_args.mutex);
-    pthread_cond_destroy(&fib_args.cond);
+    printf("F(%d) = %ld\n", fib_number, root->res);
+    free(root);
 
     return get_time_diff(start, end);
 }
