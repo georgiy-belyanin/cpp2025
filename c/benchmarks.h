@@ -2,6 +2,7 @@
 #define BENCHMARKS_H
 
 #include "threadpool.h"
+#include <stdbool.h>
 
 typedef enum
 {
@@ -33,7 +34,7 @@ typedef struct fib_ctx {
     threadpool_t *pool;
 } fib_ctx;
 
-double run_serial_spawn(threadpool_t *pool, int num_tasks);
+double run_serial_spawn(threadpool_t *pool, int num_tasks, bool simple);
 double run_parallel_spawn(threadpool_t *pool, int num_tasks);
 double run_fibonacci(threadpool_t *pool, int fib_number);
 

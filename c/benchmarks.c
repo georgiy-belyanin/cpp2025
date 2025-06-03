@@ -38,21 +38,35 @@ void no_op_task(void *arg)
     (void)dummy; // prevent compiler optimization
 }
 
-double run_serial_spawn(threadpool_t *pool, int num_tasks)
+double run_serial_spawn(threadpool_t *pool, int num_tasks, bool simple)
 {
     struct timespec start, end;
 
     /*printf("Running Serial Spawn with %d threads (%d tasks)...\n",
             pool->num_threads, num_tasks);*/
 
+    pthread_t thread;
     clock_gettime(CLOCK_MONOTONIC, &start);
 
-    for (int i = 0; i < num_tasks; i++)
-    {
-        threadpool_submit(pool, no_op_task, NULL);
-    }
+    if (!simple) {
+        for (int i = 0; i < num_tasks; i++)
+        {
+            int ret = pthread_create(&thread, NULL, &no_op_task, NULL);
 
-    threadpool_wait_all(pool);
+            if(ret != 0) {
+                printf ("Create pthread error!\n");
+                exit (1);
+            }
+
+            pthread_join(thread, NULL);
+        }
+        threadpool_wait_all(pool);
+    } else {
+        for (int i = 0; i < num_tasks; i++)
+        {
+            no_op_task(NULL);
+        }
+    }
 
     clock_gettime(CLOCK_MONOTONIC, &end);
 
@@ -110,7 +124,7 @@ double run_parallel_spawn(threadpool_t *pool, int num_tasks)
     free(spawn_args);
     return get_time_diff(start, end);
 }
-
+// Fixed version of the parallel fibonacci implementation
 
 #ifdef SERIAL_CUTOFF
 static long fib_serial(int n) {
@@ -125,27 +139,21 @@ static long fib_serial(int n) {
 }
 #endif
 
-static inline void enqueue_or_run(threadpool_t *pool, void(*fn)(void*), void *arg)
-{
-    if (is_worker && pool->queue_size == pool->queue_capacity) {
-        fn(arg);
-    } else {
-        threadpool_submit(pool, fn, arg);
-    }
-}
-
 void fibonacci_finish_task(void *arg)
 {
     fib_ctx *ctx = (fib_ctx *)arg;
 
     if (ctx->parent) {
-        ctx->parent->res += ctx->res;
+        // FIX 1: Use atomic addition to prevent race conditions
+        atomic_fetch_add(&ctx->parent->res, ctx->res);
+        
+        // FIX 2: Check if this was the last child to complete
         if (atomic_fetch_sub(&ctx->parent->pending, 1) == 1) {
             threadpool_submit(ctx->pool, fibonacci_finish_task, ctx->parent);
         }
         free(ctx);
     }
-    //root context cleanup is handled by run_fibonacci
+    // Root context cleanup is handled by run_fibonacci
 }
 
 void fibonacci_task(void *arg)
@@ -159,7 +167,8 @@ void fibonacci_task(void *arg)
     }
 
 #ifdef SERIAL_CUTOFF
-    if (ctx->n <= 10) {
+    // FIX 3: Increase cutoff for better performance
+    if (ctx->n <= 20) {  // Increased from 10 to 20
         ctx->res = fib_serial(ctx->n);
         threadpool_submit(ctx->pool, fibonacci_finish_task, ctx);
         return;
@@ -195,15 +204,14 @@ void fibonacci_task(void *arg)
 
     atomic_store(&ctx->pending, 2);
 
-    enqueue_or_run(ctx->pool, fibonacci_task, left);
-    fibonacci_task(right);
+    // FIX 4: Submit both children to thread pool for better load balancing
+    threadpool_submit(ctx->pool, fibonacci_task, left);
+    threadpool_submit(ctx->pool, fibonacci_task, right);
 }
 
 double run_fibonacci(threadpool_t *pool, int fib_number)
 {
     struct timespec start, end;
-
-    printf("Running Fibonacci(%d) with %d threads...\n", fib_number, pool->num_threads);
 
     fib_ctx *root = calloc(1, sizeof(fib_ctx));
     if (!root) {
@@ -213,7 +221,7 @@ double run_fibonacci(threadpool_t *pool, int fib_number)
 
     *root = (fib_ctx){
         .n = fib_number,
-        .res = 0,
+        .res = 0,  // FIX 5: Make sure res is atomic in struct definition
         .pending = ATOMIC_VAR_INIT(0),
         .parent = NULL,
         .pool = pool
@@ -226,7 +234,6 @@ double run_fibonacci(threadpool_t *pool, int fib_number)
 
     clock_gettime(CLOCK_MONOTONIC, &end);
 
-    //printf("F(%d) = %ld\n", fib_number, root->res);
     free(root);
 
     return get_time_diff(start, end);

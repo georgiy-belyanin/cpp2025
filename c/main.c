@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include "threadpool.h"
 #include "benchmarks.h"
+#include <malloc.h>
 
 #define DEFAULT_THREADS 8
 #define DEFAULT_TASKS 1048576  // 2^20
@@ -75,8 +76,10 @@ int main(int argc, char *argv[]) {
     
     int opt;
     int option_index = 0;
+    bool simple = false;
+    int runs = 40;
     
-    while ((opt = getopt_long(argc, argv, "b:t:n:f:ph", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "b:t:n:f:phsq", long_options, &option_index)) != -1) {
         switch (opt) {
             case 'b':
                 config.type = parse_benchmark_type(optarg);
@@ -113,6 +116,12 @@ int main(int argc, char *argv[]) {
             case 'h':
                 print_usage(argv[0]);
                 return 0;
+            case 's':
+                simple = true;
+                break;
+            case 'q':
+                runs = 5;
+                break;
             default:
                 print_usage(argv[0]);
                 return 1;
@@ -161,10 +170,10 @@ int main(int argc, char *argv[]) {
     
     double elapsed_time = 0.0;
     
-    for (int i = 0; i < 40; i++) {
+    for (int i = 0; i < runs; i++) {
         switch (config.type) {
             case BENCHMARK_SERIAL:
-                elapsed_time = run_serial_spawn(pool, config.num_tasks);
+                elapsed_time = run_serial_spawn(pool, config.num_tasks, simple);
                 break;
             case BENCHMARK_PARALLEL:
                 elapsed_time = run_parallel_spawn(pool, config.num_tasks);
@@ -181,6 +190,8 @@ int main(int argc, char *argv[]) {
         }
         printf("%.6f\n", elapsed_time);
     }
+
+
     
     //printf("\n==========================================\n");
     //printf("Benchmark completed successfully!\n");
