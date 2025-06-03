@@ -7,6 +7,9 @@
 #include <sched.h>
 #include <unistd.h>
 #include <stdatomic.h>
+#include <assert.h>
+
+#define SERIAL_CUTOFF
 
 double get_time_diff(struct timespec start, struct timespec end)
 {
@@ -23,10 +26,15 @@ void set_thread_affinity(pthread_t thread, int cpu_id)
     pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
 }
 
+int fib_rec(int n) {
+    if (n < 2) return n;
+    else
+        return fib_rec(n - 1) + fib_rec(n - 2);
+}
+
 void no_op_task(void *arg)
 {
-    volatile int dummy = 1;
-    dummy = dummy + 1;
+    volatile int dummy = fib_rec(20);
     (void)dummy; // prevent compiler optimization
 }
 
@@ -34,8 +42,8 @@ double run_serial_spawn(threadpool_t *pool, int num_tasks)
 {
     struct timespec start, end;
 
-    printf("Running Serial Spawn with %d threads (%d tasks)...\n",
-           pool->num_threads, num_tasks);
+    /*printf("Running Serial Spawn with %d threads (%d tasks)...\n",
+            pool->num_threads, num_tasks);*/
 
     clock_gettime(CLOCK_MONOTONIC, &start);
 
@@ -67,8 +75,8 @@ double run_parallel_spawn(threadpool_t *pool, int num_tasks)
 {
     struct timespec start, end;
 
-    printf("Running Parallel Spawn with %d threads (%d tasks total)\n",
-           pool->num_threads, num_tasks);
+    /*printf("Running Parallel Spawn with %d threads (%d tasks total)\n",
+            pool->num_threads, num_tasks);*/
 
     // each thread spawns tasks_per_thread tasks
     int tasks_per_thread = num_tasks / pool->num_threads;
@@ -218,7 +226,7 @@ double run_fibonacci(threadpool_t *pool, int fib_number)
 
     clock_gettime(CLOCK_MONOTONIC, &end);
 
-    printf("F(%d) = %ld\n", fib_number, root->res);
+    //printf("F(%d) = %ld\n", fib_number, root->res);
     free(root);
 
     return get_time_diff(start, end);

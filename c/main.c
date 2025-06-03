@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
                config.num_threads, max_cores);
     }
     
-    printf("=== Parallel Runtime Benchmark ===\n");
+    /*printf("=== Parallel Runtime Benchmark ===\n");
     printf("Benchmark: %s\n", get_benchmark_name(config.type, config.fib_number));
     printf("Threads: %d\n", config.num_threads);
     if (config.type == BENCHMARK_SERIAL || config.type == BENCHMARK_PARALLEL) {
@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
         printf("Fibonacci number: %d\n", config.fib_number);
     }
     printf("Thread pinning: %s\n", config.pin_threads ? "enabled" : "disabled");
-    printf("==========================================\n\n");
+    printf("==========================================\n\n");*/
     
     threadpool_t *pool = threadpool_create(config.num_threads);
     if (!pool) {
@@ -161,35 +161,38 @@ int main(int argc, char *argv[]) {
     
     double elapsed_time = 0.0;
     
-    switch (config.type) {
-        case BENCHMARK_SERIAL:
-            elapsed_time = run_serial_spawn(pool, config.num_tasks);
-            break;
-        case BENCHMARK_PARALLEL:
-            elapsed_time = run_parallel_spawn(pool, config.num_tasks);
-            break;
-        case BENCHMARK_FIBONACCI:
-            elapsed_time = run_fibonacci(pool, config.fib_number);
-            break;
+    for (int i = 0; i < 40; i++) {
+        switch (config.type) {
+            case BENCHMARK_SERIAL:
+                elapsed_time = run_serial_spawn(pool, config.num_tasks);
+                break;
+            case BENCHMARK_PARALLEL:
+                elapsed_time = run_parallel_spawn(pool, config.num_tasks);
+                break;
+            case BENCHMARK_FIBONACCI:
+                elapsed_time = run_fibonacci(pool, config.fib_number);
+                break;
+        }
+        
+        if (elapsed_time < 0) {
+            fprintf(stderr, "Error: Benchmark execution failed\n");
+            threadpool_destroy(pool);
+            return 1;
+        }
+        printf("%.6f\n", elapsed_time);
     }
     
-    if (elapsed_time < 0) {
-        fprintf(stderr, "Error: Benchmark execution failed\n");
-        threadpool_destroy(pool);
-        return 1;
-    }
+    //printf("\n==========================================\n");
+    //printf("Benchmark completed successfully!\n");
+    //printf("Elapsed time: %.3f milliseconds\n", elapsed_time * 1000);
     
-    printf("\n==========================================\n");
-    printf("Benchmark completed successfully!\n");
-    printf("Elapsed time: %.3f milliseconds\n", elapsed_time * 1000);
+    //if (config.type == BENCHMARK_SERIAL || config.type == BENCHMARK_PARALLEL) {
+    //    double throughput = config.num_tasks / elapsed_time;
+    //    printf("Throughput: %.0f tasks/second\n", throughput);
+    //    printf("Average task time: %.3f microseconds\n", (elapsed_time * 1e6) / config.num_tasks);
+    //}
     
-    if (config.type == BENCHMARK_SERIAL || config.type == BENCHMARK_PARALLEL) {
-        double throughput = config.num_tasks / elapsed_time;
-        printf("Throughput: %.0f tasks/second\n", throughput);
-        printf("Average task time: %.3f microseconds\n", (elapsed_time * 1e6) / config.num_tasks);
-    }
-    
-    printf("==========================================\n");
+    //printf("==========================================\n");
     
     threadpool_destroy(pool);
     
