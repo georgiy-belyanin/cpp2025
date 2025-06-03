@@ -1,7 +1,6 @@
 use crate::tasks;
 
-pub fn serial(threads: usize, tasks: u32, task: fn())
-{
+pub fn serial(threads: usize, tasks: u32, task: fn()) {
     let barrier = std::sync::Arc::new(tokio::sync::Barrier::new(tasks as usize + 1));
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(threads.into())
@@ -39,7 +38,7 @@ pub fn parallel(threads: usize, tasks: u32, task: fn()) {
         rt.spawn(async move {
             for _ in 0..current_tasks {
                 let internal_barrier_clone = barrier_clone.clone();
-                tokio::task::spawn(async move { 
+                tokio::task::spawn(async move {
                     task();
                     internal_barrier_clone.wait().await;
                 });

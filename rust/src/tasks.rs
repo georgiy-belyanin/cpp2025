@@ -1,5 +1,5 @@
-use tokio::sync::Mutex;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
 pub fn dummy_task() {
     let mut var = 1;
@@ -18,13 +18,8 @@ pub async fn fib(n: usize) -> usize {
     return fib_helper(n, shared_values.clone()).await;
 }
 
-async fn fib_helper(
-    n: usize,
-    results: Arc<Mutex<Vec<Arc<Mutex<Option<usize>>>>>>,
-) -> usize {
-    let result_mutex = { 
-        results.lock().await[n].clone()
-    };
+async fn fib_helper(n: usize, results: Arc<Mutex<Vec<Arc<Mutex<Option<usize>>>>>>) -> usize {
+    let result_mutex = { results.lock().await[n].clone() };
 
     let mut result = result_mutex.lock().await;
     if result.is_some() {

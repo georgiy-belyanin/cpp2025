@@ -102,7 +102,11 @@ fn main() {
             for task in tasks_map {
                 std::println!("\nRunning {} function benchmark", task.0);
                 let start = Instant::now();
-                runners::parallel(args.threads.unwrap_or(num_cpus::get()), task_args.tasks, task.1);
+                runners::parallel(
+                    args.threads.unwrap_or(num_cpus::get()),
+                    task_args.tasks,
+                    task.1,
+                );
                 let end = Instant::now();
 
                 let time = end - start;
@@ -123,4 +127,3 @@ fn main() {
         }
     }
 }
-
