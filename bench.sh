@@ -9,6 +9,8 @@ for threads in 1 8 16 24; do
         go/fib $threads -limit > results/go-fib-$threads-limit.txt
         echo "c/c_posix_runtime_bench -b fib -t $threads -f 45 > results/c-fib-$threads.txt"
         c/c_posix_runtime_bench -b fib -t $threads -f 45 > results/c-fib-$threads.txt
+        echo "rust/target/release/cpp2025 --threads $threads fibonacci -n 45 > results/rust-fib-$threads.txt"
+        rust/target/release/cpp2025 --threads $threads fibonacci -n 45 > results/rust-fib-$threads.txt
 done
 
 for units in 10000 50000 100000; do
@@ -20,6 +22,10 @@ for units in 10000 50000 100000; do
         c/c_posix_runtime_bench -b serial -n $units > results/c-sequential-$units.txt
         echo "c/c_posix_runtime_bench -b serial -n $units -s > results/c-sequential-$units-simple.txt"
         c/c_posix_runtime_bench -b serial -n $units -s > results/c-sequential-$units-simple.txt
+        echo "rust/target/release/cpp2025 serial -n $units > results/rust-sequential-$units.txt"
+        rust/target/release/cpp2025 serial -n $units > results/rust-sequential-$units.txt
+        echo "rust/target/release/cpp2025 serial -n $units -s > results/rust-sequential-$units-simple.txt"
+        rust/target/release/cpp2025 serial -n $units -s > results/rust-sequential-$units-simple.txt
 done
 
 for threads in 1 8 16 24; do
@@ -29,4 +35,6 @@ for threads in 1 8 16 24; do
         go/parallel $threads -limit > results/go-parallel-$threads-limit.txt
         echo "c/c_posix_runtime_bench -b parallel -t $threads -n 400000 > results/c-parallel-$threads.txt"
         c/c_posix_runtime_bench -b parallel -t $threads -n 400000 > results/c-parallel-$threads.txt
+        echo "rust/target/release/cpp2025 --threads $threads parallel -n 400000 > results/rust-parallel-$threads.txt"
+        rust/target/release/cpp2025 --threads $threads parallel -n 400000 > results/rust-parallel-$threads.txt
 done
