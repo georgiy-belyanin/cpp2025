@@ -34,3 +34,14 @@ jobs:
       - name: Build
         run: make
         working-directory: './go'
+
+  rust:
+    name: Rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Build
+        run: cargo build --benches
+        working-directory: './rust'
