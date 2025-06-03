@@ -36,12 +36,26 @@ jobs:
         working-directory: './go'
 
   rust:
-    name: Rust
+    name: Rust build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Spellcheck
+        uses: crate-ci/typos@master
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
       - name: Build
         run: cargo build --benches
+        working-directory: './rust'
+  rust-fmt:
+    name: Rust format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Spellcheck
+        uses: crate-ci/typos@master
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Check Formatting
+        run: cargo fmt --check
         working-directory: './rust'
