@@ -19,6 +19,31 @@ pub fn serial(threads: usize, tasks: u32, task: fn()) {
     });
 }
 
+pub fn serial_with_simple(threads: usize, tasks: u32, task: fn(), simple: bool) {
+    if !simple {
+        let barrier = std::sync::Arc::new(tokio::sync::Barrier::new(tasks as usize + 1));
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(threads.into())
+            .build()
+            .unwrap();
+        for _ in 0..tasks {
+            let barrier_clone = barrier.clone();
+            rt.spawn(async move {
+                task();
+                barrier_clone.wait().await;
+            });
+        }
+
+        rt.block_on(async {
+            barrier.wait().await;
+        });
+    } else {
+        for _ in 0..tasks {
+            task();
+        }
+    }
+}
+
 pub fn parallel(threads: usize, tasks: u32, task: fn()) {
     let tasks_per_thread: usize = (tasks as f32 / threads as f32) as usize;
     let remaining_tasks: usize = (tasks as f32 % threads as f32) as usize;

@@ -31,6 +31,9 @@ struct FibArgs {
 struct TaskArgs {
     #[arg(short, long)]
     tasks: u32,
+
+    #[arg(short, long, default_value_t = false)]
+    simple: bool,
 }
 
 #[derive(Parser)]
@@ -57,9 +60,10 @@ fn main() {
     match &args.command {
         Commands::Serial(task_args) => {
             println!(
-                "Configuration: {} threads, {} tasks",
+                "Configuration: {} threads, {} tasks, {} - is simple",
                 args.threads.unwrap_or(num_cpus::get()),
-                task_args.tasks
+                task_args.tasks,
+                task_args.simple
             );
         }
         Commands::Parallel(task_args) => {
@@ -83,10 +87,11 @@ fn main() {
             for task in tasks_map {
                 std::println!("\nRunning {} function benchmark", task.0);
                 let start = Instant::now();
-                runners::serial(
+                runners::serial_with_simple(
                     args.threads.unwrap_or(num_cpus::get()),
                     task_args.tasks,
                     task.1,
+                    task_args.simple
                 );
                 let end = Instant::now();
 
