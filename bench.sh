@@ -24,6 +24,8 @@ for units in 10000 50000 100000; do
         c/c_posix_runtime_bench -b serial -n $units -s > results/c-sequential-$units-simple.txt
         echo "rust/target/release/cpp2025 serial -n $units > results/rust-sequential-$units.txt"
         rust/target/release/cpp2025 serial -n $units > results/rust-sequential-$units.txt
+        echo "rust/target/release/cpp2025 serial -n $units -s > results/rust-sequential-$units-simple.txt"
+        rust/target/release/cpp2025 serial -n $units -s > results/rust-sequential-$units-simple.txt
 done
 
 for threads in 1 8 16 24; do
