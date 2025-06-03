@@ -1,0 +1,36 @@
+name: Bulid
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  c:
+    name: C
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up GCC
+        uses: egor-tensin/setup-gcc@v1
+        with:
+          version: latest
+      - uses: actions/checkout@v4
+      - name: Spellcheck
+        uses: crate-ci/typos@master
+      - name: Build
+        run: make
+        working-directory: './c'
+
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Spellcheck
+        uses: crate-ci/typos@master
+      - name: Setup Go
+        uses: actions/setup-go@v5
+      - name: Build
+        run: make
+        working-directory: './go'
